@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gutenberg Word Frequency</title>
+</head>
+<body>
+    <h1>Book Word Frequency Search</h1>
+
+    <!-- SECTION 1: Search by Book Title (Local Database) -->   
+    <h2>Search by Book Title (Local Database)</h2>
+    <form method="post">
+    {% csrf_token %}    <!-- CSRF token for security -->
+    <input type="text" name="title" placeholder="Enter Book Title">
+    <button type="submit" name="title_search">Search</button>
+</form>
+    <!-- SECTION 2: Search by Project Gutenberg URL -->
+    <h2>Or Search by URL (Project Gutenberg)</h2>
+    <form method="post">
+    {% csrf_token %}  <!-- CSRF token for security -->
+    <input type="text" name="url" placeholder="Enter Gutenberg .txt URL">
+    <button type="submit" name="url_search">Search</button>
+</form>
+    <!-- SECTION 3: Display the Top 10 Words (if any results exist) -->
+    {% if words %}
+        <h3>Top 10 Words (from {{ source }})</h3>
+        <ul>
+            {% for word in words %}
+                <li>{{ word.word }} - {{ word.frequency }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <!-- SECTION 4: Display any errors -->
+    {% if error %}
+        <p style="color:red">{{ error }}</p>
+    {% endif %}
+</body>
+</html>
+

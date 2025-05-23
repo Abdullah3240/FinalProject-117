@@ -56,45 +56,59 @@ def home(request):
         elif 'url_search' in request.POST:
             raw_url = request.POST.get('url')
 
-    try:
-        # Step 1: Extract Book ID from normal Gutenberg URL
-        if "/ebooks/" in raw_url:
-            book_id = raw_url.strip().split("/ebooks/")[-1].strip("/")
-            txt_url = f"https://www.gutenberg.org/cache/epub/{book_id}/pg{book_id}.txt"
-        else:
-            txt_url = raw_url  # fallback if .txt is directly given
+            try:
+                if not raw_url:
+                    raise ValueError("No URL provided.")
 
-        # Step 2: Download the text file
-        response = requests.get(txt_url)
-        response.raise_for_status()
-        text = response.text
+                # Step 1: Convert normal Gutenberg link to .txt link
+                if "/ebooks/" in raw_url:
+                    book_id = raw_url.strip().split("/ebooks/")[-1].strip("/")
+                    txt_url = f"https://www.gutenberg.org/cache/epub/{book_id}/pg{book_id}.txt"
+                else:
+                    txt_url = raw_url
 
-        # Step 3: Extract actual title from header of the book
-        lines = text.splitlines()
-        title = None
-        for line in lines:
-            if line.lower().startswith("title:"):
-                title = line[6:].strip()
-                break
+                # Step 2: Download book text
+                response = requests.get(txt_url)
+                response.raise_for_status()
+                text = response.text
 
-        if not title:
-            title = f"Gutenberg Book {book_id}"  # fallback if no title found
+                # Step 3: Extract book title
+                title = None
+                for line in text.splitlines():
+                    if line.strip().lower().startswith("title:"):
+                        raw_title = line.split(":", 1)[1].strip()
+                        title = raw_title.split(";")[0].strip() 
 
-        # Step 4: Clean and analyze words
-        words = clean_text(text)
-        most_common = Counter(words).most_common(10)
+                        break
 
-        # Step 5: Save book and words to DB
-        book, created = Book.objects.get_or_create(title=title)
-        book.words.all().delete()
-        for word, freq in most_common:
-            FrequentWord.objects.create(book=book, word=word, frequency=freq)
+                if not title:
+                    title = f"Gutenberg Book {book_id}"  # fallback title
 
-        context['words'] = book.words.all().order_by('-frequency')[:10]
-        context['source'] = 'Web (Project Gutenberg)'
-        context['saved_title'] = title
-    except Exception as e:
-        context['error'] = f"Error downloading or processing book: {str(e)}"
+                print("DEBUG: Title extracted →", title)
+
+                # Step 4: Clean and count words
+                words = clean_text(text)
+                most_common = Counter(words).most_common(10)
+
+                print("DEBUG: Top words →", most_common)
+
+                # Step 5: Save book and words
+                book, created = Book.objects.get_or_create(title=title)
+                book.words.all().delete()  # Clear previous
+
+                for word, freq in most_common:
+                    FrequentWord.objects.create(book=book, word=word, frequency=freq)
+
+                # Step 6: Show results
+                context['words'] = book.words.all().order_by('-frequency')[:10]
+                context['source'] = 'Web (Project Gutenberg)'
+                context['saved_title'] = title
+
+            except Exception as e:
+                context['error'] = f"Error downloading or processing book: {str(e)}"
+
+
+
 
 
     return render(request, 'books/home.html', context)

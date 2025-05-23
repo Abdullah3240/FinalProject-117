@@ -60,19 +60,19 @@ def home(request):
                 if not raw_url:
                     raise ValueError("No URL provided.")
 
-                # Step 1: Convert normal Gutenberg link to .txt link
+                # Convert normal Gutenberg link to .txt link
                 if "/ebooks/" in raw_url:
                     book_id = raw_url.strip().split("/ebooks/")[-1].strip("/")
                     txt_url = f"https://www.gutenberg.org/cache/epub/{book_id}/pg{book_id}.txt"
                 else:
                     txt_url = raw_url
 
-                # Step 2: Download book text
+                # Download book text
                 response = requests.get(txt_url)
                 response.raise_for_status()
                 text = response.text
 
-                # Step 3: Extract book title
+                # Extract book title
                 title = None
                 for line in text.splitlines():
                     if line.strip().lower().startswith("title:"):
@@ -82,24 +82,24 @@ def home(request):
                         break
 
                 if not title:
-                    title = f"Gutenberg Book {book_id}"  # fallback title
+                    title = f"Gutenberg Book {book_id}"  
 
                 print("DEBUG: Title extracted →", title)
 
-                # Step 4: Clean and count words
+                # Clean and count words
                 words = clean_text(text)
                 most_common = Counter(words).most_common(10)
 
                 print("DEBUG: Top words →", most_common)
 
-                # Step 5: Save book and words
+                # Save book and words
                 book, created = Book.objects.get_or_create(title=title)
                 book.words.all().delete()  # Clear previous
 
                 for word, freq in most_common:
                     FrequentWord.objects.create(book=book, word=word, frequency=freq)
 
-                # Step 6: Show results
+                #  Show results
                 context['words'] = book.words.all().order_by('-frequency')[:10]
                 context['source'] = 'Web (Project Gutenberg)'
                 context['saved_title'] = title
